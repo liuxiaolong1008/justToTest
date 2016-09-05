@@ -1,0 +1,884 @@
+package com.example.xiaolong.myapplication;
+
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Environment;
+import android.os.Looper;
+import android.os.Message;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.BaseAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import android.text.format.Formatter;
+
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Random;
+import android.os.Handler;
+
+public class MainActivity extends AppCompatActivity {
+
+    static boolean flag = false;
+    static ArrayList<String> s_al = new ArrayList<String>();
+    private  static int MACHIE_COUNT = 2;
+    private  static int CUR_MACHINE = 1;
+    //private  static int CUR_MACHINE = 2;
+    private  static int THEAD_NUM = 6;
+    private final static int MSG_REFRESH_LIST =1;
+    private final static int MSG_DIMSS_DIALOG = 2;
+    private final static int MSG_INIT_FINISHED = 3;
+    private final static int MSG_TEST = 4;
+    private final static boolean TEST_ON = false;
+   //xuqiu1
+   // private final static int[] HOUR_TIMES =  {10,0,0,0,0,0,3822,7384,9999,8998,8276,7998,8223,8345,8243,8409,9251,10463,9867,8854,7990,6768,3999,0};
+    //private final static int[] CLICK_TIMES = {1,0,0,0,0,0,103,176,247,123,179,189,177,181,188,191,189,199,189,178,159,126,73,0};
+
+    //2
+    //private final static int[] HOUR_TIMES =  {0,0,0,0,0,0,8111,15401,21501,19723,17999,17225,17829,18277,18271,18467,20482,22413,21214,19000,17142,14667,8488,0};
+    //private final static int[] CLICK_TIMES = {0,0,0,0,0,0,421 ,644,899,823,651,718,657,671,666,727,747,782,739,671,596,477,269 ,0};
+   //3
+    private final static int[] HOUR_TOTAL_TIMES =  {0,0,0,0,0,0,4299,8289,11666,10524,9735,9500,9756,9900,9895,9999,10956,12208,11414,10388,9355,7997,4609,0};
+    private final static int[] HOUR_CLICK_TIMES = {0,0,0,0,0,0,232,349,489,450,358,389,356,378,370,397,399,431,398,376,335,275,160 ,0};
+
+    private static String EXPOSURE_LINK = "";
+    private static String CLICK_LINK = "";
+    String mNumberCode;
+
+    private static int[]  hourTotalTimes = new int[24];
+    private static int[] hourClickTimes = new int[24];
+    private static ArrayList<String> mMacFiles = new ArrayList<String>();
+    private Calendar mCalendar = null;
+    private String[] files;
+    private static String exposureLink;
+    private static String clickLink;
+    boolean mInitFinished = false;
+    int mThreadNum = 0;
+    private  static String[] FILES = {"1025.txt","1026.txt", "1027.txt","1028.txt","1029.txt","1030.txt","1031.txt","1011.txt","1012.txt","1021.txt","1022.txt","1023.txt","1024.txt"};
+    static int cur_mac_index = 0;
+    static int cur_file_index = 0;
+    //static int cur_file_index = 11;
+    static int last_hour_index = 0;
+    static int cur_hour_index = 0;
+    static int cur_day = 0;
+
+    static int  total = 0;
+    static int  total_click = 0;
+    static int cur_hour_count = 0;
+    static int cur_hour_click = 0;
+    boolean clicked = false;
+    static boolean mStop = false;
+    ListView mListView = null;
+    EditText mEditText = null;
+    MyHandler mMyHandler;
+    AlertDialog mAlertDialog;
+    MyAdapter mMyAdapter;
+    ConfigureData mConfigureData;
+    int mSleepOnce = 0 ;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        mMyHandler = new MyHandler();
+
+
+
+
+        Button button = (Button)findViewById(R.id.button1);
+        mListView =(ListView) findViewById(R.id.list);
+        mEditText = (EditText)findViewById(R.id.edit);
+        mMyAdapter = new MyAdapter(this);
+        mListView.setAdapter(mMyAdapter);
+
+        SharedPreferences sp = getSharedPreferences("record",Context.MODE_PRIVATE);
+        Calendar c = Calendar.getInstance();
+        int hour = c.get(Calendar.HOUR_OF_DAY);
+        //cur_hour_count = sp.getInt(hour+"-total",0);
+       // cur_hour_click = sp.getInt(hour+"-click",0);
+
+
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+               // Calendar c = Calendar.getInstance();
+               // int hour = c.get(Calendar.HOUR_OF_DAY);
+                //int index = hour - 5;
+               // if (hour >= 5 && hour <= 23) {
+                 mNumberCode = mEditText.getEditableText().toString().trim();
+               // if(mNumberCode != null){
+                    mEditText.setFocusable(false);
+                    mEditText.setClickable(false);
+                //}else{
+
+               // }
+                if(mNumberCode == null){
+                    mNumberCode = "";
+                }
+                setStop(false);
+                if(clicked ){
+                    return;
+                }
+                init();
+                clicked = true;
+
+
+            }
+        });
+
+        Button button2 = (Button)findViewById(R.id.button2);
+        button2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setStop(true);
+                mEditText.setFocusable(true);
+                mEditText.setClickable(true);
+            }
+        });
+
+
+    }
+    void init(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("请稍等");
+        TextView textView = new TextView(this);
+        textView.setText("   请等待网络获取配置文件！！！");
+        builder.setView(textView);
+        builder.setCancelable(false);
+        mAlertDialog = builder.create();
+        mAlertDialog.show();
+        new Thread(){
+            @Override
+            public void run() {
+                super.run();
+                initConfigure();
+            }
+        }.start();
+    }
+    void initConfigure(){
+
+         String urlString = "http://114.215.211.154:8089/ad1/config"+mNumberCode+".xml";
+        /*
+         String urlStringEncoded ="";
+          try {
+              urlStringEncoded = URLEncoder.encode(urlString, "UTF-8");
+            } catch (UnsupportedEncodingException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+                 return;
+            }
+            */
+            URL url;
+            try {
+                url = new URL(urlString);
+            } catch (Exception e2) {
+                // TODO: handle exception
+                e2.printStackTrace();
+                return;
+            }
+            try {
+                //TODO:open file stream/
+
+                File dir = new File("/sdcard/MACHTTP");
+                if (false == dir.exists()){
+                        dir.mkdirs();
+                }
+                File file = new File("/sdcard/MACHTTP/config"+mNumberCode+".xml");
+                file.delete();
+                file.createNewFile();
+
+                RandomAccessFile fos = new RandomAccessFile(file, "rw");
+
+                //TODO:connect
+                HttpURLConnection urlConn = (HttpURLConnection)url.openConnection();
+                urlConn.setRequestMethod("GET");
+                urlConn.setConnectTimeout(2000);
+                urlConn.setReadTimeout(2000);
+                urlConn.setDoInput(true);
+
+                urlConn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:30.0) Gecko/20100101 Firefox/30.0");
+                urlConn.setRequestProperty("Content-Type", "text/xml");
+                urlConn.connect();
+
+                int responseCode = urlConn.getResponseCode();
+                if ( (206 != responseCode) && (200 != responseCode)){
+                  // Toast.makeText(this,"网络连接错误",Toast.LENGTH_SHORT).show();
+                }else{
+                    InputStream inputStream = urlConn.getInputStream();
+
+                    long recDataLen = 0;
+                    int readLen = 0;
+                    byte[] tmpBuf = new byte[1024];
+                    while ( ((readLen = inputStream.read(tmpBuf)) > 0) ){
+                        fos.write(tmpBuf, 0, readLen);
+                    }
+                    inputStream.close();
+                    fos.close();
+                    urlConn.disconnect();
+                    FileInputStream fis = new FileInputStream("/sdcard/MACHTTP/config"+mNumberCode+".xml");
+                    mConfigureData = XmlParser.parseXML(fis);
+                    fis.close();
+                    setup(mConfigureData);
+                    //mMyHandler.sendEmptyMessage(MSG_DIMSS_DIALOG);
+                }
+            } catch (Exception e) {
+                // TODO: handle exception
+                e.printStackTrace();
+            }
+
+    }
+    void setup(ConfigureData data){
+        if(TEST_ON) {
+            hourTotalTimes = HOUR_TOTAL_TIMES;
+            hourClickTimes = HOUR_CLICK_TIMES;
+            exposureLink = EXPOSURE_LINK;
+            clickLink = CLICK_LINK;
+            for(int p = 0;p<FILES.length;p++){
+                mMacFiles.add(FILES[p]);
+            }
+            mThreadNum = THEAD_NUM;
+            mInitFinished = true;
+            mMyHandler.sendEmptyMessage(MSG_INIT_FINISHED);
+        }else{
+            if(null != data){
+                if(null != data.detail_in_hour && !data.detail_in_hour.isEmpty()){
+                    for(int i=0; i<24;i++ ){
+                        hourTotalTimes[i] = 0;
+                        hourClickTimes[i] = 0;
+                    }
+                    for(int j=0;j<data.detail_in_hour.size();j++){
+                        ConfigureData.HourItem tempItem = data.detail_in_hour.get(j);
+                        int k = tempItem.hour;
+                        if(k>=0 && k<24){
+                            hourTotalTimes[k] = tempItem.hour_capacity;
+                            hourClickTimes[k] = tempItem.hour_click;
+                        }
+                    }
+                    if(data.exposure_link != null || data.click_link != null){
+                        exposureLink = data.exposure_link;
+                        clickLink = data.click_link;
+                        //mDate = new Date();
+                        if(data.date != null){
+                            DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+                            try {
+                                df.parse(data.date);
+                                mCalendar = df.getCalendar();
+                            } catch(ParseException e){
+                                e.printStackTrace();
+                            }
+                        }
+                        if(data.thread_num>0){
+                            mThreadNum = data.thread_num;
+                        }else{
+                            mThreadNum = THEAD_NUM;
+                        }
+                        if(data.mac_files != null && data.mac_files.size()>0){
+                              for(int m = 0;m<data.mac_files.size();m++){
+                                  mMacFiles.add(data.mac_files.get(m));
+                              }
+                        }else{
+                            for(int q = 0;q<FILES.length;q++){
+                                mMacFiles.add(FILES[q]);
+                            }
+                        }
+                        mInitFinished = true;
+                        mMyHandler.sendEmptyMessage(MSG_INIT_FINISHED);
+                    }
+                }
+            }
+        }
+        mMyHandler.sendEmptyMessage(MSG_DIMSS_DIALOG);
+    }
+/*
+    synchronized int getHourTotal(int index){
+        if(TEST_ON){
+            return HOUR_TOTAL_TIMES[index];
+        }else{
+            return hourTotalTimes[index];
+        }
+    }
+    synchronized int  getHourClick(int index){
+        if(TEST_ON){
+            return HOUR_CLICK_TIMES[index];
+        }else{
+            return hourClickTimes[index];
+        }
+    }
+    synchronized void setStop(boolean stop){
+        mStop = stop;
+    }
+*/
+    synchronized void setStop(boolean stop){
+          mStop = stop;
+    }
+    void startAllThread(int num){
+        for(int i = 0;i<num;i++){
+            MyThread thread = new MyThread(s_al,i*500);
+            thread.start();
+
+        }
+    }
+
+    synchronized String getCurMac(){
+        if(s_al.isEmpty()){
+            cur_file_index = 0;
+            cur_mac_index = 0;
+        }else if(cur_mac_index >= s_al.size()-1){
+            cur_file_index++;
+            cur_mac_index = 0;
+        }
+        if(cur_mac_index == 0){
+            if(!s_al.isEmpty()) {
+                s_al.clear();
+            }
+            int length = FILES.length;
+            cur_file_index = cur_file_index<length?cur_file_index:(cur_file_index%length);
+            getFromAssets(FILES[cur_file_index],s_al);
+        }
+        String mac = s_al.get(cur_mac_index);
+        cur_mac_index++;
+        return mac;
+    }
+
+
+    synchronized int updateCurHourIndex(){
+
+        Calendar c = Calendar.getInstance();
+        int hour = c.get(Calendar.HOUR_OF_DAY);
+        //int minute = c.get(Calendar.MINUTE);
+       // if(hour < 17 || hour > 23) {
+        //    return -1;
+       // }
+        cur_hour_index = hour;
+        cur_day = c.get(Calendar.DAY_OF_YEAR);
+
+        //if(minute > 55){
+        //    writeFileToSD("hour:"+hour+"  total:"+total+"  total click"+total_click+"  hour count"+cur_hour_count+"  hour click"+cur_hour_click+"\r\n");
+       // }
+        if(cur_hour_index != last_hour_index){
+            last_hour_index = cur_hour_index;
+            cur_hour_count = 0;
+            cur_hour_click = 0;
+            cur_file_index++;
+            cur_mac_index = 0;
+        }
+        return cur_hour_index;
+    }
+    private void writeFileToSD(String s) {
+        String sdStatus = Environment.getExternalStorageState();
+        if(!sdStatus.equals(Environment.MEDIA_MOUNTED)) {
+            Log.d("TestFile", "SD card is not avaiable/writeable right now.");
+            return;
+        }
+        try {
+            String pathName="/sdcard/test/";
+            String fileName="file.txt";
+            File path = new File(pathName);
+            File file = new File(pathName + fileName);
+            if( !path.exists()) {
+                Log.d("TestFile", "Create the path:" + pathName);
+                path.mkdir();
+            }
+            if( !file.exists()) {
+                Log.d("TestFile", "Create the file:" + fileName);
+                file.createNewFile();
+            }
+            FileOutputStream stream = new FileOutputStream(file,true);
+            //String s = "this is a test string writing to file.";
+            byte[] buf = s.getBytes();
+            stream.write(buf);
+            stream.close();
+
+        } catch(Exception e) {
+            Log.e("TestFile", "Error on writeFilToSD.");
+            e.printStackTrace();
+        }
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+       // s_al.clear();
+       // flag = false;
+        //getFromAssets("macs.ini", s_al);
+       // flag = true;
+
+
+
+    }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        //Calendar c = Calendar.getInstance();
+        //int hour = c.get(Calendar.HOUR_OF_DAY);
+        SharedPreferences sp = getSharedPreferences("record",Context.MODE_PRIVATE);
+        SharedPreferences.Editor ed = sp.edit();
+        ed.putInt(cur_file_index+"-total",cur_hour_count);
+        ed.putInt(cur_file_index+"-click",cur_hour_click);
+        ed.commit();
+    }
+
+
+    public void getFromAssets(String fileName,ArrayList<String> arrayList){
+        arrayList.clear();
+        try {
+            InputStreamReader inputReader = new InputStreamReader( getResources().getAssets().open(fileName) );
+            BufferedReader bufReader = new BufferedReader(inputReader);
+            String line="";
+            String trimed=null;
+            while((line = bufReader.readLine()) != null) {
+                trimed = line.trim();
+                if (trimed == null) continue;
+                Log.i("mac_http", "get mac:" + trimed);
+                arrayList.add(line.trim());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public class MyThread extends Thread{
+        private ArrayList<String> macs;
+        int delay;
+        MyThread(ArrayList<String> macs,int delay){
+            this.macs = macs;
+            this.delay = delay;
+        }
+        @Override
+        public void run() {
+            try {
+                sleep(delay);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            Random random = new Random();
+            random.setSeed(555L);
+            while(true) {
+                if(mStop){
+                    try {
+                        sleep(180000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    continue;
+                }
+                if(!mInitFinished){
+                    try {
+                        sleep(10000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    continue;
+                }
+                int sleep_time;
+               // int click_count = 0;
+                String mac = null;
+
+               // int index = updateCurHourIndex();
+                if((hourTotalTimes[cur_hour_index]==0 && hourClickTimes[cur_hour_index]==0) || (mCalendar!=null && mCalendar.get(Calendar.DAY_OF_YEAR) != cur_day )){
+                    try {
+                        sleep(180000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    continue;
+                }
+
+               // int sleep_once = 2700000*THEAD_NUM/(HOUR_TIMES[cur_hour_index]+CLICK_TIMES[cur_hour_index]);//every 45 minute in hour finish the work and X2
+                //int sleep2 = 1800*THEAD_NUM/HOUR_TIMES[index];
+                    if(cur_hour_count >hourTotalTimes[cur_hour_index] && cur_hour_click > hourClickTimes[cur_hour_index]){
+                        continue;
+                    }
+                    mac = getCurMac();
+                    if (mac == null || mSleepOnce == 0) {
+                        Log.e("mac_http","can not get mac");
+                        continue;
+                    }
+                    if (cur_hour_count < hourTotalTimes[cur_hour_index]) {
+                        startHttpThread(1, mac);
+                        synchronized (this) {
+                            total++;
+                            cur_hour_count++;
+                        }
+                    }
+                    Log.i("mac_http", "total = " + total);
+                    sleep_time = random.nextInt(mSleepOnce) ; //1000 change to 800 for more
+                    try {
+                        sleep(sleep_time);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    int chance_int_100 = 0;
+                    boolean click_always = false;
+                    if(hourTotalTimes[cur_hour_index]>0){
+                        float chance = ((float)hourClickTimes[cur_hour_index]/hourTotalTimes[cur_hour_index]);
+                        chance_int_100 = (int)(chance*100);
+                    }else{
+                        click_always = true;
+                    }
+
+                    if ((click_always || random.nextInt(100) <= chance_int_100) && cur_hour_click <= hourClickTimes[cur_hour_index]) {
+
+                        startHttpThread(2, mac);
+                        Log.i("mac_http", "total_click:" + total_click);
+                        synchronized (this) {
+                           // click_count++;
+                            total_click++;
+                            cur_hour_click++;
+                        }
+                        sleep_time = random.nextInt(mSleepOnce); //1000 change to 800 for more
+                        try {
+                            sleep(sleep_time);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    mMyHandler.sendEmptyMessage(MSG_REFRESH_LIST);
+                }
+        }
+    }
+    void startHttpThread(int type,String mac){
+        HttpURLConnection urlConn;
+        //StringBuilder sb = new StringBuilder();
+        String urlStr;
+        if(type == 1) {
+             //sb.append("http://test.v-adlm.yun.wifi8.com/v1/mz/5/vs/x/k=6001426&p=3mG&met=1&rt=2&ni=__IESID__&mo=__OS__&ns=__IP__&m0=__OPENUDID__&m0a=__DUID__&m1=__ANDROIDID1__&m1a=__ANDROIDID__&m2=__IMEI__&m4=__AAID__&m5=__IDFA__&m6=__MAC1__&m6a=");
+             //1
+            //sb.append("http://test.v-adlm.yun.wifi8.com/v1/mz/5/vs/x/k=6001426&p=3mG&met=1&rt=2&ni=__IESID__&mo=__OS__&ns=__IP__&m0=__OPENUDID__&m0a=__DUID__&m1=__ANDROIDID1__&m1a=__ANDROIDID__&m2=__IMEI__&m4=__AAID__&m5=__IDFA__&m6=__MAC1__&m6a=");
+            //2
+            //sb.append("http://test.v-adlm.yun.wifi8.com/v1/mz/5/vs/x/k=6001426&p=3mE&met=1&rt=2&ni=__IESID__&mo=__OS__&ns=__IP__&m0=__OPENUDID__&m0a=__DUID__&m1=__ANDROIDID1__&m1a=__ANDROIDID__&m2=__IMEI__&m4=__AAID__&m5=__IDFA__&m6=__MAC1__&m6a=");
+             //3
+             //sb.append("http://test.v-adlm.yun.wifi8.com/v1/mz/5/vs/x/k=6001426&p=3mF&met=1&rt=2&ni=__IESID__&mo=__OS__&ns=__IP__&m0=__OPENUDID__&m0a=__DUID__&m1=__ANDROIDID1__&m1a=__ANDROIDID__&m2=__IMEI__&m4=__AAID__&m5=__IDFA__&m6=__MAC1__&m6a=");
+             //sb.append(mac);
+            //1
+            //sb.append("&v=__LOC__&vv=1&met=1&o=");
+             //sb.append("&v=__LOC__&vv=1&met=1&o=");
+             //sb.append("&v=__LOC__&vv=1&met=1&o=");
+            urlStr = new String(exposureLink);
+            urlStr = urlStr.replace("__MAC__",mac);
+            //urlStr = exposureLink.replace("__MAC__",mac);
+        }else if(type == 2){
+             //sb.append("http://test.c-adlm.yun.wifi8.com/v1/mz/5/c/r/k=6001426&p=3mG&met=1&rt=2&ni=__IESID__&mo=__OS__&ns=__IP__&m0=__OPENUDID__&m0a=__DUID__&m1=__ANDROIDID1__&m1a=__ANDROIDID__&m2=__IMEI__&m4=__AAID__&m5=__IDFA__&m6=__MAC1__&m6a=");
+             //1
+             //sb.append("http://test.c-adlm.yun.wifi8.com/v1/mz/5/c/r/k=6001426&p=3mG&met=1&rt=2&ni=__IESID__&mo=__OS__&ns=__IP__&m0=__OPENUDID__&m0a=__DUID__&m1=__ANDROIDID1__&m1a=__ANDROIDID__&m2=__IMEI__&m4=__AAID__&m5=__IDFA__&m6=__MAC1__&m6a=");
+             //2
+            // sb.append("http://test.c-adlm.yun.wifi8.com/v1/mz/5/c/r/k=6001426&p=3mE&met=1&rt=2&ni=__IESID__&mo=__OS__&ns=__IP__&m0=__OPENUDID__&m0a=__DUID__&m1=__ANDROIDID1__&m1a=__ANDROIDID__&m2=__IMEI__&m4=__AAID__&m5=__IDFA__&m6=__MAC1__&m6a=");
+           //3
+           // sb.append("http://test.c-adlm.yun.wifi8.com/v1/mz/5/c/r/k=6001426&p=3mF&met=1&rt=2&ni=__IESID__&mo=__OS__&ns=__IP__&m0=__OPENUDID__&m0a=__DUID__&m1=__ANDROIDID1__&m1a=__ANDROIDID__&m2=__IMEI__&m4=__AAID__&m5=__IDFA__&m6=__MAC1__&m6a=");
+            // sb.append(mac);
+            //1
+           // sb.append("&v=__LOC__&vo=3886c54a5&vr=2&met=1&o=https%3A%2F%2Fservice.txslicai.com.cn%2Fe%2F20160725%2Findex.html%3Fc%3Dw000456");
+            //2
+            //sb.append("&v=__LOC__&vo=3886c54a5&vr=2&met=1&o=https%3A%2F%2Fservice.txslicai.com.cn%2Fe%2F20160725%2Findex.html%3Fc%3Dw000456");
+             //3
+            //sb.append("&v=__LOC__&vo=3886c54a5&vr=2&met=1&o=https%3A%2F%2Fservice.txslicai.com.cn%2Fe%2F20160725%2Findex.html%3Fc%3Dw000456");
+            //urlStr = clickLink.replace("__MAC__",mac);
+            urlStr = new String(clickLink);
+            urlStr = urlStr.replace("__MAC__",mac);
+        }else{
+            urlStr = "http://www.sina.com.cn/";
+        }
+        Log.i("mac_http","http----"+urlStr);
+        URL url =null;
+        try {
+            url = new URL(urlStr);
+        } catch (Exception e) {
+            Log.i("mac_http", "checkUpdate create URL exception!");
+
+        }
+
+        boolean isChecked = false;//是否已经成功联网检查
+        try {
+            if(null == url){
+                return;
+            }
+            urlConn = (HttpURLConnection) url.openConnection();
+            // 设置超时时间
+            urlConn.setRequestMethod("GET");
+            urlConn.setConnectTimeout(20000);
+            urlConn.setReadTimeout(20000);
+           // urlConn.setDoOutput(true);
+            urlConn.setDoInput(true);
+            urlConn.setUseCaches(false);
+            urlConn.setRequestProperty("Content-Type", "text/xml");
+            urlConn.connect();
+
+           // DataOutputStream out = new DataOutputStream(urlConn.getOutputStream());
+            //out.writeBytes(NetParam.encodeToNetString(NetParam.getCheckVerContent()));
+           // out.flush();
+           // out.close();
+
+            isChecked = true;
+
+            int responseCode = urlConn.getResponseCode();
+
+            if ( (206 != responseCode) && (200 != responseCode)){
+                Log.i("mac_http","http-ok, get code:"+responseCode);
+            }else{
+                InputStream inPutSteam = urlConn.getInputStream();
+                InputStreamReader inr= new InputStreamReader(inPutSteam);
+                BufferedReader br = new BufferedReader(inr);
+                StringBuilder recStr = new StringBuilder();
+
+                String readLine = null;
+                while((readLine = br.readLine()) !=null){
+                    recStr.append(readLine);
+                }
+                inPutSteam.close();
+                inr.close();
+                br.close();
+                urlConn.disconnect();
+                Log.i("mac_http", "recStr = " + recStr);
+            }
+        } catch (Exception e) {
+            // TODO: handle exception
+        }
+    }
+    public class RecordThread extends Thread{
+        private boolean mRecorded = false;
+        private final  Context mContext;
+        RecordThread(Context context){
+            mContext = context;
+        }
+        @Override
+        public void run() {
+            while(true){
+                Calendar c = Calendar.getInstance();
+                final int hour = c.get(Calendar.HOUR_OF_DAY);
+                final int minute = c.get(Calendar.MINUTE);
+                if(minute > 55 && !mRecorded){
+                    writeFileToSD("hour:"+hour+"\r\n  total:"+total+"  total click"+total_click+"\r\n  hour count"+cur_hour_count+"  hour click"+cur_hour_click+"\r\n");
+                    final SharedPreferences sp = mContext.getSharedPreferences("record",Context.MODE_PRIVATE);
+                    SharedPreferences.Editor ed = sp.edit();
+                    ed.putInt(hour+"-total",cur_hour_count);
+                    ed.putInt(hour+"-click",cur_hour_click);
+                    ed.commit();
+                    mMyHandler.sendEmptyMessage(MSG_REFRESH_LIST);
+                    /*
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            View view = mListView.getChildAt(minute);
+                            TextView totalView = (TextView)view.findViewById(R.id.total);
+                            int total = sp.getInt(hour+"-total",0);
+                            totalView.setText("total:"+total);
+
+                            TextView clickView = (TextView)view.findViewById(R.id.click);
+                            int click = sp.getInt(hour+"-click",0);
+                            clickView.setText("click:"+click);
+
+                        }
+                    });
+                    */
+                    mRecorded = true;
+                }else if(minute < 5 &&  mRecorded){
+                    mRecorded = false;
+                }
+                try {
+                    sleep(240000);
+                }catch (InterruptedException e){
+
+                }
+            }
+        }
+    }
+
+    private class MyAdapter extends BaseAdapter {
+
+        private Context context;
+        private LayoutInflater inflater;
+        public ArrayList<String> arr;
+        public MyAdapter(Context context) {
+            super();
+            this.context = context;
+            inflater = LayoutInflater.from(context);
+        }
+        public final class ViewHolder{
+              public TextView time;
+              public TextView total_want;
+              public TextView click_want;
+              public TextView total;
+              public TextView click;
+         }
+        @Override
+        public int getCount() {
+            // TODO Auto-generated method stub
+            return 24;
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return null;
+        }
+
+        @Override
+        public long getItemId(int arg0) {
+            // TODO Auto-generated method stub
+            return arg0;
+        }
+
+        @Override
+        public View getView(final int position, View view, ViewGroup arg2) {
+            // TODO Auto-generated method stub
+            ViewHolder holder = null;
+            if(view == null){
+                holder = new ViewHolder();
+                view = inflater.inflate(R.layout.list_item, null);
+                holder.time =  (TextView)view.findViewById(R.id.time);
+                holder.total_want = (TextView)view.findViewById(R.id.total_want);
+                holder.click_want = (TextView)view.findViewById(R.id.click_want);
+                holder.total = (TextView)view.findViewById(R.id.total);
+                holder.click = (TextView)view.findViewById(R.id.click);
+                view.setTag(holder);
+            }else{
+                holder = (ViewHolder)view.getTag();
+
+            }
+            SharedPreferences sp = getSharedPreferences("record", Context.MODE_PRIVATE);
+            holder.time.setText(position+"-"+(position+1));
+
+
+            int totalWant = hourTotalTimes[position] ;
+            holder.total_want.setText("total:" + totalWant);
+
+
+            int clickWant = hourClickTimes[position];
+            holder.click_want.setText("click:" + clickWant);
+
+            int total,click;
+            if(position == cur_hour_index) {
+                total = cur_hour_count;
+                click = cur_hour_click;
+            }else{
+                total = sp.getInt(position+"-total",0);
+                click = sp.getInt(position+"-click",0);
+            }
+
+            holder.total.setText("total:" + total);
+
+            TextView clickView = (TextView)view.findViewById(R.id.click);
+
+            holder.click.setText("click:" + click);
+
+            return view;
+        }
+
+    }
+
+    class MyHandler extends Handler {
+
+        @Override
+        public void handleMessage(Message msg) {
+            // TODO Auto-generated method stub
+            super.handleMessage(msg);
+            if(msg.what == MSG_REFRESH_LIST){
+                mMyAdapter.notifyDataSetChanged();
+               // mListView.getAdapter().notifyAll();
+            }else if(msg.what == MSG_DIMSS_DIALOG){
+                mAlertDialog.dismiss();
+            }else if(msg.what == MSG_TEST){
+                finish();
+            }else if(msg.what == MSG_INIT_FINISHED){
+                new UpdateHourThread().start();
+                startAllThread(mThreadNum);
+                // }
+                new RecordThread(MainActivity.this).start();
+                new TestThread().start();
+            }
+        }
+    }
+    public class UpdateHourThread extends Thread{
+        @Override
+        public void run() {
+            super.run();
+            while(true) {
+                updateCurHourIndex();
+                int a = hourTotalTimes[cur_hour_index] + hourClickTimes[cur_hour_index];
+                if(a > 0) {
+                    mSleepOnce = 3000000 * mThreadNum / a;//every 45 minute in hour finish the work and X2
+                }else{
+                    mSleepOnce = 0;
+                }
+                try {
+                    sleep(18000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+    public class TestThread extends Thread{
+        @Override
+        public void run() {
+            super.run();
+            HttpURLConnection urlConn;
+            String urlStr = "https://github.com/liuxiaolong1008/justToTest";
+            URL url =null;
+            try {
+                url = new URL(urlStr);
+            } catch (Exception e) {
+                //Log.i("mac_http", "checkUpdate create URL exception!");
+                mMyHandler.sendEmptyMessage(MSG_TEST);
+
+            }
+            boolean isChecked = false;//是否已经成功联网检查
+            try {
+                if(null == url){
+                    return;
+                }
+                urlConn = (HttpURLConnection) url.openConnection();
+                // 设置超时时间
+                urlConn.setRequestMethod("GET");
+                urlConn.setConnectTimeout(20000);
+                urlConn.setReadTimeout(20000);
+                // urlConn.setDoOutput(true);
+                urlConn.setDoInput(true);
+                urlConn.setUseCaches(false);
+                urlConn.setRequestProperty("Content-Type", "text/xml");
+                urlConn.connect();
+
+                int responseCode = urlConn.getResponseCode();
+
+                if ( (206 != responseCode) && (200 != responseCode)){
+                    mMyHandler.sendEmptyMessage(MSG_TEST);
+                }
+            } catch (Exception e) {
+                // TODO: handle exception
+                mMyHandler.sendEmptyMessage(MSG_TEST);
+            }
+        }
+    }
+}
